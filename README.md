@@ -50,10 +50,10 @@ To change the target platform, modify the `PLATFORM` variable in the `make/local
 
 ## Repository Structure
 
-- **make/**: Contains Makefile helpers for building and running the application.
 - **modules/**: Contains add-on modules that can be used with the neuralSPOT SDK (git submodules).
 - **neuralspot/**: Contains the neuralSPOT SDK and it's internal modules (git submodule).
 - **src/**: Contains the main application code.
+- **local_overrides.mk**: Local overrides for the Makefile, including the target platform and other configurations.
 - **Makefile**: The main Makefile for building the application.
 
 ## Available Add-on Modules
@@ -73,21 +73,25 @@ The following add-on modules are available for use with the neuralSPOT SDK:
 To add an add-on module to your application, follow these steps:
 
 1. Clone the add-on module repository into the `modules/` directory.
+
     ```bash
     git submodule add <repository-url> modules/<module-name>
     ```
 
     Note: This requires the app to be a git repository. To add modules to a non-git repository, you can manually copy or clone the module into the `modules/` directory.
+
     ```bash
     git clone <repository-url> modules/<module-name>
     ```
 
 2. Update the `Makefile` to include the new module.
+
     ```makefile
     modules      += modules/<module-name>
     ```
 
 3. Rebuild the application.
+
     ```bash
     make clean && make
     ```

@@ -1,8 +1,8 @@
-include make/helpers.mk
-include make/local_overrides.mk
-include make/neuralspot_config.mk
-include make/neuralspot_toolchain.mk
-include make/jlink.mk
+include local_overrides.mk
+include neuralspot/make/helpers.mk
+include neuralspot/make/neuralspot_config.mk
+include neuralspot/make/neuralspot_toolchain.mk
+include neuralspot/make/jlink.mk
 
 ifeq ($(TOOLCHAIN),arm)
 COMPDIR := armclang
