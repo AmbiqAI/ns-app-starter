@@ -1,0 +1,9 @@
+[submodule "modules/ns-cmsis-dsp"]
+	path = modules/ns-cmsis-dsp
+	url = https://github.com/AmbiqAI/ns-cmsis-dsp
+[submodule "modules/ns-cmsis-nn"]
+	path = modules/ns-cmsis-nn
+	url = git@github.com:AmbiqAI/ns-cmsis-nn.git
+[submodule "neuralspot"]
+	path = neuralspot
+	url = git@github.com:AmbiqAI/neuralSPOT.git
