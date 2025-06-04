@@ -1,8 +1,9 @@
+
 PLATFORM := apollo510_evb
 AS_VERSION := R5.2.0
 
 # PLATFORM := apollo4p_blue_kxr_evb
-# AS_VERSION := R4.4.1
+# AS_VERSION := R4.5.0
 
 TF_VERSION := ns_tflm_v1_0_0
 MLDEBUG := 0
