@@ -1,0 +1,31 @@
+ns-app-starter
+Copyright (c) 2026, Ambiq
+
+This product includes starter/template code authored by Ambiq for the
+neuralSPOT application starter, licensed under the BSD 3-Clause License.
+See LICENSE for the full text.
+
+This repository pulls in the following components as git submodules. Each
+keeps its own license, unmodified, at the path shown below.
+
+- modules/ns-cmsis-dsp -- Apache License, Version 2.0 (top-level LICENSE).
+  Also vendors ComputeLibrary (MIT License) and Ne10 (a BSD-3-Clause-style
+  license from ARM Limited and Contributors); see NOTICE, ComputeLibrary/LICENSE.txt,
+  and Ne10/LICENSE inside that submodule.
+
+- modules/ns-cmsis-nn -- Ambiq Apollo SDK License (top-level LICENSE) for
+  Ambiq-authored files and modifications, with upstream Arm CMSIS-NN files
+  remaining under the Apache License, Version 2.0; see NOTICE and
+  LICENSES/Apache-2.0.txt and LICENSES/LicenseRef-Ambiq-Apollo-SDK.txt inside
+  that submodule.
+
+- neuralspot -- BSD 3-Clause License (top-level LICENSE). Vendors additional
+  third-party code under neuralspot/extern (AmbiqSuite SDK releases, CMSIS,
+  TensorFlow Lite Micro and its third_party/ dependencies, codecs, and
+  drivers). See THIRD-PARTY-NOTICES.md for the full, generated inventory of
+  every license file found in these submodule trees, including the
+  AmbiqSuite AM-BSD-EULA.txt and the SEGGER RTT license.
+
+Binaries built from this starter include components under the Ambiq Apollo
+SDK License (via modules/ns-cmsis-nn) and, as a result, stay bound to Ambiq
+silicon in production.
