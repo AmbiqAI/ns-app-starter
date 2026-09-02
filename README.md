@@ -13,6 +13,7 @@ This repository provides a starter template for building applications with the n
   - [Available Add-on Modules](#available-add-on-modules)
   - [Adding Add-on Modules](#adding-add-on-modules)
   - [Example: Adding `ns-tileio`](#example-adding-ns-tileio)
+  - [License](#license)
 
 ---
 
@@ -214,5 +215,23 @@ To include a new add-on module in your application, follow these steps:
        return 0;
    }
    ```
+
+---
+
+## License
+
+The Ambiq-authored starter code in this repository (`src/`, the top-level
+`Makefile`, and related scripts) is licensed under the [BSD 3-Clause
+License](LICENSE).
+
+This repository pulls in the `neuralspot`, `modules/ns-cmsis-dsp`, and
+`modules/ns-cmsis-nn` submodules, each of which keeps its own license. See
+[`NOTICE`](NOTICE) for a summary and [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
+for the full, generated inventory of every third-party license found in
+those submodule trees (regenerate it with `python3 tools/gen_notices.py`).
+
+Binaries built from this starter include components under the Ambiq Apollo
+SDK License (via `modules/ns-cmsis-nn`) and, as a result, stay bound to
+Ambiq silicon in production.
 
 ---

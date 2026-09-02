@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026, Ambiq
 include local_overrides.mk
 include neuralspot/make/helpers.mk
 include neuralspot/make/neuralspot_config.mk
