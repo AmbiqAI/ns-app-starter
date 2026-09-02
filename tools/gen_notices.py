@@ -18,20 +18,41 @@ This script does not judge or rewrite license text -- it only concatenates
 whatever it finds, verbatim, under a heading for its repository-relative
 path. It never modifies files inside the submodules.
 
+Provenance: `.gitmodules` records a submodule's URL and path but not the
+license text itself, and this repository's pinned commits for
+modules/ns-cmsis-dsp and modules/ns-cmsis-nn are not always reachable on
+their remotes (see the "Provenance" section this script writes into the
+output). So every generated file stamps, per submodule, the exact commit
+and ref actually read (`git -C <submodule> rev-parse HEAD` /
+`--abbrev-ref HEAD`), and notes whether that commit matches the pin
+recorded in this repository's index or is a substitute (typically the
+`main` branch tip) read because the pin was unreachable. Regenerate this
+file whenever a submodule pin changes or once a dangling pin is fixed --
+`--check` compares against the committed file and reports the provenance
+recorded in each so drift is attributable to a specific submodule commit.
+
 Usage:
     python3 tools/gen_notices.py            # (re)write THIRD-PARTY-NOTICES.md
     python3 tools/gen_notices.py --check    # verify the file is up to date;
-                                             # exits 1 and prints a diff-free
-                                             # summary of drift if not.
+                                             # exits 1 and prints the stamped
+                                             # provenance (both what was just
+                                             # read and what is committed) if
+                                             # not.
 
 Output is deterministic: submodule order is fixed, files within a submodule
 are sorted by relative path, and all paths are repository-relative with
 forward slashes (no absolute paths), so the generated file is reproducible
-across machines and operating systems.
+across machines and operating systems given the same submodule commits.
+
+Fails closed: if a submodule directory is missing or not checked out
+(`git submodule update --init` not run), this script errors out naming the
+missing submodule instead of silently generating a partial file.
 """
 from __future__ import annotations
 
 import argparse
+import re
+import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
@@ -52,6 +73,14 @@ _NAME_PREFIXES = ("license", "copying", "notice")
 # start with "license" (e.g. .github/workflows/license-headers.yml) are not
 # mistaken for license text.
 _ALLOWED_SUFFIXES = ("", ".txt", ".md")
+
+_PROVENANCE_LINE_RE = re.compile(
+    r"^- `(?P<submodule>[^`]+)` @ `(?P<sha>[0-9a-fA-F]{7,40})` \((?P<ref>[^)]*)\)"
+)
+
+
+class SubmoduleMissingError(RuntimeError):
+    """Raised when a submodule directory is missing/not checked out."""
 
 
 def _is_license_file(path: Path) -> bool:
@@ -90,7 +119,81 @@ def _relposix(path: Path) -> str:
     return PurePosixPath(path.relative_to(REPO_ROOT).as_posix()).as_posix()
 
 
-def generate() -> str:
+def _run_git(cwd: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def _pinned_sha(submodule: str) -> str | None:
+    """Return the gitlink commit recorded in this repo's index for `submodule`.
+
+    This is what `.gitmodules` + the parent tree pin the submodule to. Returns
+    None if the path has no gitlink entry (should not happen for an entry in
+    SUBMODULES, but handled defensively).
+    """
+    result = subprocess.run(
+        ["git", "ls-tree", "HEAD", "--", submodule],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    line = result.stdout.strip()
+    if not line:
+        return None
+    # Format: "<mode> commit <sha>\t<path>"
+    fields = line.split()
+    if len(fields) >= 3 and fields[1] == "commit":
+        return fields[2]
+    return None
+
+
+def _submodule_provenance(submodule: str) -> tuple[str, str]:
+    """Return (sha, ref) actually checked out for `submodule`.
+
+    Fails closed (raises SubmoduleMissingError naming the submodule) if it
+    is not checked out, rather than silently generating a partial file.
+    """
+    root = REPO_ROOT / submodule
+    if not root.is_dir() or not (root / ".git").exists():
+        raise SubmoduleMissingError(
+            f"submodule '{submodule}' is not checked out at {root}. "
+            "Run `git submodule update --init` (or the equivalent manual "
+            "clone/checkout for pins that are unreachable on the remote) "
+            "before generating THIRD-PARTY-NOTICES.md."
+        )
+    sha = _run_git(root, "rev-parse", "HEAD")
+    ref = _run_git(root, "rev-parse", "--abbrev-ref", "HEAD")
+    return sha, ref
+
+
+def _provenance_note(submodule: str, sha: str, pinned: str | None) -> str:
+    if pinned is None:
+        return "no pinned commit found in this repository's index."
+    if sha == pinned:
+        return "matches the commit pinned in this repository's index."
+    return (
+        f"the pinned commit (`{pinned}`) was unreachable on the submodule's "
+        "remote at generation time; the tip shown here was read instead."
+    )
+
+
+def generate() -> tuple[str, dict[str, tuple[str, str]]]:
+    """Return (file content, {submodule: (sha, ref)}).
+
+    Raises SubmoduleMissingError (fail closed) if any submodule in
+    SUBMODULES is not checked out.
+    """
+    provenance: dict[str, tuple[str, str]] = {}
+    for submodule in SUBMODULES:
+        provenance[submodule] = _submodule_provenance(submodule)
+
     lines: list[str] = []
     lines.append("# Third-Party Notices")
     lines.append("")
@@ -111,17 +214,28 @@ def generate() -> str:
     )
     lines.append("")
 
+    lines.append("## Provenance")
+    lines.append("")
+    lines.append(
+        "Every submodule commit actually read to produce this file, so "
+        "drift is attributable. See the script docstring for why a "
+        "submodule's tip can differ from its `.gitmodules` pin."
+    )
+    lines.append("")
+    for submodule in SUBMODULES:
+        sha, ref = provenance[submodule]
+        pinned = _pinned_sha(submodule)
+        note = _provenance_note(submodule, sha, pinned)
+        lines.append(f"- `{submodule}` @ `{sha}` ({ref}) -- {note}")
+    lines.append("")
+
     for submodule in SUBMODULES:
         submodule_root = REPO_ROOT / submodule
+        sha, ref = provenance[submodule]
         lines.append(f"## {submodule}")
         lines.append("")
-        if not submodule_root.is_dir():
-            lines.append(
-                "_Submodule not checked out; run `git submodule update --init` "
-                "and regenerate this file._"
-            )
-            lines.append("")
-            continue
+        lines.append(f"Generated from: {submodule} @ {sha} ({ref})")
+        lines.append("")
 
         license_files = _find_license_files(submodule_root)
         if not license_files:
@@ -138,7 +252,24 @@ def generate() -> str:
             lines.append("```")
             lines.append("")
 
-    return "\n".join(lines).rstrip("\n") + "\n"
+    content = "\n".join(lines).rstrip("\n") + "\n"
+    return content, provenance
+
+
+def _extract_provenance(text: str) -> dict[str, tuple[str, str]]:
+    found: dict[str, tuple[str, str]] = {}
+    for line in text.splitlines():
+        match = _PROVENANCE_LINE_RE.match(line)
+        if match:
+            found[match.group("submodule")] = (match.group("sha"), match.group("ref"))
+    return found
+
+
+def _print_provenance(label: str, provenance: dict[str, tuple[str, str]]) -> None:
+    print(f"{label}:", file=sys.stderr)
+    for submodule in SUBMODULES:
+        sha, ref = provenance.get(submodule, ("(none)", "(none)"))
+        print(f"  - {submodule} @ {sha} ({ref})", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -150,13 +281,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    content = generate()
+    try:
+        content, provenance = generate()
+    except SubmoduleMissingError as exc:
+        print(f"gen_notices.py: {exc}", file=sys.stderr)
+        return 1
 
     if args.check:
         existing = OUTPUT_PATH.read_text(encoding="utf-8") if OUTPUT_PATH.exists() else ""
+        _print_provenance("Provenance read this run", provenance)
         if existing == content:
             print(f"{OUTPUT_PATH.relative_to(REPO_ROOT)} is up to date.")
             return 0
+        _print_provenance("Provenance in committed file", _extract_provenance(existing))
         print(
             f"{OUTPUT_PATH.relative_to(REPO_ROOT)} is out of date. "
             "Run `python3 tools/gen_notices.py` to regenerate.",
